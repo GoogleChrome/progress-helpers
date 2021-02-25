@@ -22,10 +22,11 @@
   <p>You need to manually register a service worker</p>
 
   <script type="module">
-  import {Workbox} from '/__WORKBOX/buildFile/workbox-window'
+  import {Workbox, messageSW} from '/__WORKBOX/buildFile/workbox-window'
 
   // Expose on the global object so it can be referenced by webdriver.
   window.Workbox = Workbox;
+  window.messageSW = messageSW;
   </script>
 </body>
 </html>

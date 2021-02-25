@@ -1,0 +1,36 @@
+/*
+  Copyright 2019 Google LLC
+
+  Use of this source code is governed by an MIT-style
+  license that can be found in the LICENSE file or at
+  https://opensource.org/licenses/MIT.
+*/
+
+// {{ version }}
+
+// From packages/workbox-core/src/_private/Deferred.ts
+// TODO figure out how to import from there
+class Deferred {
+  constructor() {
+    this.promise = new Promise((resolve, reject) => {
+      this.resolve = resolve;
+      this.reject = reject;
+    });
+  }
+}
+
+const installedDeferred = new Deferred();
+addEventListener('install', (event) => {
+  return event.waitUntil(
+    installedDeferred.promise
+      .then(() => skipWaiting())
+  );
+})
+
+addEventListener('message', (event) => {
+  if (event.data.type === 'FINISH_INSTALL') {
+    installedDeferred.resolve();
+  }
+});
+
+addEventListener('activate', (event) => event.waitUntil(clients.claim()));

@@ -238,5 +238,52 @@ describe(`[workbox-window] Workbox`, function() {
       // The waiting phase should have been skipped.
       expect(result.waitingSpyCallCount).to.equal(0);
     });
+
+    it(`reports all events for existing installing SW registrattion`, async function() {
+      await executeAsyncAndCatch(async (cb) => {
+        try {
+          const wb = new Workbox('sw-installed-on-message.js.njk');
+          await wb.register();
+          cb();
+        } catch (error) {
+          cb({error: error.stack});
+        }
+      });
+
+      await openNewTab(testPath);
+      await windowLoaded();
+
+      const result = await executeAsyncAndCatch(async (cb) => {
+        try {
+          const wb = new Workbox('sw-installed-on-message.js.njk');
+
+          const spies = {
+            installedSpy: sinon.spy(),
+          };
+
+          wb.addEventListener('installed', spies.installedSpy);
+          wb.addEventListener('activated', () => cb({
+            installedSpyCallCount: spies.installedSpy.callCount,
+          }));
+
+          const registration = await wb.register();
+
+          // Would prefer to do this but wb._sw !== registration.installing
+          // await wb.messageSW({
+          //   type: 'FINISH_INSTALL',
+          // });
+
+          if (registration.installing) {
+            window.messageSW(registration.installing, {
+              type: 'FINISH_INSTALL',
+            });
+          }
+        } catch (error) {
+          cb({error: error.stack});
+        }
+      });
+
+      expect(result.installedSpyCallCount).to.equal(1);
+    });
   });
 });
