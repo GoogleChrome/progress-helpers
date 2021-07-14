@@ -15,10 +15,8 @@
   "workbox": {
     "packageType": "node"
   },
-  "main": "build/index.js",
-  "files": [
-    "build"
-  ],
+  "main": "index.js",
+  "types": "index.d.ts",
   "engines": {
     "node": ">=10.0.0"
   },

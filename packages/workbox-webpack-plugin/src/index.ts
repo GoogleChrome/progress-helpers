@@ -6,14 +6,14 @@
   https://opensource.org/licenses/MIT.
 */
 
-const GenerateSW = require('./generate-sw');
-const InjectManifest = require('./inject-manifest');
+import GenerateSW from './generate-sw';
+import InjectManifest from './inject-manifest';
 
 /**
  * @module workbox-webpack-plugin
  */
 
-module.exports = {
+export {
   GenerateSW,
   InjectManifest,
 };

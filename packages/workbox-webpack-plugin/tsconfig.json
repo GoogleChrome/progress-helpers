@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig",
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "module": "CommonJS",
+    "outDir": "build",
+    "rootDir": "src",
+    "target": "ES2018",
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": ["../workbox-cli/src/index.d.ts"],
+  "references": [
+    {"path": "../workbox-build/"}
+  ]
+}

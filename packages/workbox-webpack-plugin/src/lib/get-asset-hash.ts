@@ -6,15 +6,16 @@
   https://opensource.org/licenses/MIT.
 */
 
-const crypto = require('crypto');
+import crypto from 'crypto';
+import type {Asset} from 'webpack-v5';
 
 /**
- * @param {WebpackAsset} asset
+ * @param {Asset} asset
  * @return {string} The MD5 hash of the asset's source.
  *
  * @private
  */
-module.exports = (asset) => {
+export function getAssetHash(asset: Asset): string | null {
   // If webpack has the asset marked as immutable, then we don't need to
   // use an out-of-band revision for it.
   // See https://github.com/webpack/webpack/issues/9038
@@ -25,4 +26,4 @@ module.exports = (asset) => {
   return crypto.createHash('md5')
       .update(Buffer.from(asset.source.source()))
       .digest('hex');
-};
+}

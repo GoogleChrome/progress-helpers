@@ -19,7 +19,7 @@
  *
  * @private
  */
-module.exports = (publicPath, ...paths) => {
+export function resolveWebpackURL(publicPath: string, ...paths: Array<string>): string {
   // This is a change in webpack v5.
   // See https://github.com/jantimon/html-webpack-plugin/pull/1516
   if (publicPath === 'auto') {
@@ -27,4 +27,4 @@ module.exports = (publicPath, ...paths) => {
   } else {
     return [publicPath, ...paths].join('');
   }
-};
+}

@@ -6,8 +6,9 @@
   https://opensource.org/licenses/MIT.
 */
 
-const sourceMapURL = require('source-map-url');
-const upath = require('upath');
+import sourceMapURL from 'source-map-url';
+import upath from 'upath';
+import type {Compilation} from 'webpack-v5';
 
 /**
  * If our bundled swDest file contains a sourcemap, we would invalidate that
@@ -27,7 +28,7 @@ const upath = require('upath');
  *
  * @private
  */
-module.exports = (compilation, swContents, swDest) => {
+export function getSourcemapAssetName(compilation: Compilation, swContents: string, swDest: string): string | undefined {
   const url = sourceMapURL.getFrom(swContents);
   if (url) {
     // Translate the relative URL to what the presumed name for the webpack
@@ -44,4 +45,5 @@ module.exports = (compilation, swContents, swDest) => {
       return sourcemapURLAssetName;
     }
   }
-};
+  return undefined;
+}

@@ -6,12 +6,14 @@
   https://opensource.org/licenses/MIT.
 */
 
-const {matchPart} = require('webpack').ModuleFilenameHelpers;
-const {transformManifest} =
-    require('workbox-build/build/lib/transform-manifest');
+import {Asset, Chunk, Compilation, ModuleFilenameHelpers} from 'webpack-v5';
+import {WebpackError} from 'webpack-v5';
+// @ts-ignore - TODO - get typescript version of `workbox-build`
+import transformManifest from 'workbox-build/build/lib/transform-manifest';
 
-const getAssetHash = require('./get-asset-hash');
-const resolveWebpackURL = require('./resolve-webpack-url');
+import {CommonConfig} from '../types';
+import {getAssetHash} from './get-asset-hash';
+import {resolveWebpackURL} from './resolve-webpack-url';
 
 /**
  * For a given asset, checks whether at least one of the conditions matches.
@@ -24,14 +26,14 @@ const resolveWebpackURL = require('./resolve-webpack-url');
  * @return {boolean} Whether or not at least one condition matches.
  * @private
  */
-function checkConditions(asset, compilation, conditions = []) {
+function checkConditions(asset: Asset, compilation: Compilation, conditions: Array<string | RegExp | ((params: {asset: Asset, compilation: Compilation}) => unknown)> = []): boolean {
   for (const condition of conditions) {
     if (typeof condition === 'function') {
       if (condition({asset, compilation})) {
         return true;
       }
     } else {
-      if (matchPart(asset.name, condition)) {
+      if (ModuleFilenameHelpers.matchPart(asset.name, condition)) {
         return true;
       }
     }
@@ -49,10 +51,10 @@ function checkConditions(asset, compilation, conditions = []) {
  *
  * @param {Compilation} compilation
  * @param {string} chunkOrGroup
- * @return {Array<Asset>|null}
+ * @return {Array<string>|null}
  * @private
  */
-function getNamesOfAssetsInChunkOrGroup(compilation, chunkOrGroup) {
+function getNamesOfAssetsInChunkOrGroup(compilation: Compilation, chunkOrGroup: string): Array<string> | null {
   const chunkGroup = compilation.namedChunkGroups &&
       compilation.namedChunkGroups.get(chunkOrGroup);
   if (chunkGroup) {
@@ -77,11 +79,11 @@ function getNamesOfAssetsInChunkOrGroup(compilation, chunkOrGroup) {
  * Returns the names of all the assets in a chunk.
  *
  * @param {Chunk} chunk
- * @return {Array<Asset>}
+ * @return {Array<string>}
  * @private
  */
-function getNamesOfAssetsInChunk(chunk) {
-  const assetNames = [];
+function getNamesOfAssetsInChunk(chunk: Chunk): Array<string> {
+  const assetNames: Array<string> = [];
 
   assetNames.push(...chunk.files);
 
@@ -104,11 +106,11 @@ function getNamesOfAssetsInChunk(chunk) {
  * based on the criteria provided.
  * @private
  */
-function filterAssets(compilation, config) {
-  const filteredAssets = new Set();
+function filterAssets(compilation: Compilation, config: CommonConfig): Set<Asset> {
+  const filteredAssets = new Set<Asset>();
   const assets = compilation.getAssets();
 
-  const allowedAssetNames = new Set();
+  const allowedAssetNames = new Set<string>();
   // See https://github.com/GoogleChrome/workbox/issues/1287
   if (Array.isArray(config.chunks)) {
     for (const name of config.chunks) {
@@ -120,7 +122,7 @@ function filterAssets(compilation, config) {
           allowedAssetNames.add(assetName);
         }
       } else {
-        compilation.warnings.push(new Error(`The chunk '${name}' was ` +
+        compilation.warnings.push(new WebpackError(`The chunk '${name}' was ` +
           `provided in your Workbox chunks config, but was not found in the ` +
           `compilation.`));
       }
@@ -178,14 +180,15 @@ function filterAssets(compilation, config) {
   return filteredAssets;
 }
 
-module.exports = async (compilation, config) => {
+// TODO - return type
+export async function getManifestEntriesFromCompilation(compilation: Compilation, config: CommonConfig) {
   const filteredAssets = filterAssets(compilation, config);
 
   const {publicPath} = compilation.options.output;
 
   const fileDetails = Array.from(filteredAssets).map((asset) => {
     return {
-      file: resolveWebpackURL(publicPath, asset.name),
+      file: resolveWebpackURL(publicPath as string, asset.name),
       hash: getAssetHash(asset),
       size: asset.source.size() || 0,
     };
@@ -203,12 +206,13 @@ module.exports = async (compilation, config) => {
 
   // See https://github.com/GoogleChrome/workbox/issues/2790
   for (const warning of warnings) {
-    compilation.warnings.push(new Error(warning));
+    compilation.warnings.push(new WebpackError(warning));
   }
 
   // Ensure that the entries are properly sorted by URL.
   const sortedEntries = manifestEntries.sort(
+      // @ts-ignore - TODO - get typescript version of `workbox-build`
       (a, b) => a.url === b.url ? 0 : (a.url > b.url ? 1 : -1));
 
   return {size, sortedEntries};
-};
+}

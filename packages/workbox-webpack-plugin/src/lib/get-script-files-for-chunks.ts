@@ -6,34 +6,35 @@
   https://opensource.org/licenses/MIT.
 */
 
-const upath = require('upath');
+import upath from 'upath';
+import {Compilation, WebpackError} from 'webpack-v5';
 
-const resolveWebpackURL = require('./resolve-webpack-url');
+import {resolveWebpackURL} from './resolve-webpack-url';
 
-module.exports = (compilation, chunkNames) => {
+export function getScriptFilesForChunks(compilation: Compilation, chunkNames: Array<string>): Array<string> {
   const {chunks} = compilation.getStats().toJson({chunks: true});
   const {publicPath} = compilation.options.output;
-  const scriptFiles = new Set();
+  const scriptFiles = new Set<string>();
 
   for (const chunkName of chunkNames) {
-    const chunk = chunks.find((chunk) => chunk.names.includes(chunkName));
+    const chunk = chunks!.find((chunk) => chunk.names?.includes(chunkName));
     if (chunk) {
-      for (const file of chunk.files) {
+      for (const file of chunk?.files ?? []) {
         // See https://github.com/GoogleChrome/workbox/issues/2161
         if (upath.extname(file) === '.js') {
-          scriptFiles.add(resolveWebpackURL(publicPath, file));
+          scriptFiles.add(resolveWebpackURL(publicPath as string, file));
         }
       }
     } else {
-      compilation.warnings.push(new Error(`${chunkName} was provided to ` +
+      compilation.warnings.push(new WebpackError(`${chunkName} was provided to ` +
         `importScriptsViaChunks, but didn't match any named chunks.`));
     }
   }
 
   if (scriptFiles.size === 0) {
-    compilation.warnings.push(new Error(`There were no assets matching ` +
+    compilation.warnings.push(new WebpackError(`There were no assets matching ` +
         `importScriptsViaChunks: [${chunkNames}].`));
   }
 
   return Array.from(scriptFiles);
-};
+}

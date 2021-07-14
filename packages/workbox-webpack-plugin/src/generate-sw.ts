@@ -6,18 +6,23 @@
   https://opensource.org/licenses/MIT.
 */
 
-const {validateWebpackGenerateSWOptions} =
-  require('workbox-build/build/lib/validate-options');
-const {bundle} = require('workbox-build/build/lib/bundle');
-const {populateSWTemplate} =
-  require('workbox-build/build/lib/populate-sw-template');
-const prettyBytes = require('pretty-bytes');
-const webpack = require('webpack');
+// @ts-ignore - TODO - use typescript version of `workbox-build`
+import {validateWebpackGenerateSWOptions} from 'workbox-build/build/lib/validate-options';
+// @ts-ignore - TODO - use typescript version of `workbox-build`
+import {bundle} from 'workbox-build/build/lib/bundle';
+// @ts-ignore - TODO - use typescript version of `workbox-build`
+import {populateSWTemplate} from 'workbox-build/build/lib/populate-sw-template';
+// @ts-ignore - TODO - huh?
+import {GoogleAnalyticsInitializeOptions} from 'workbox-google-analytics/initialize';
+import prettyBytes from 'pretty-bytes';
+import webpack from 'webpack-v5';
+// @ts-ignore - TODO - use typescript version of `workbox-build`
+import {RuntimeCachingEntry} from 'workbox-build';
 
-const getScriptFilesForChunks = require('./lib/get-script-files-for-chunks');
-const getManifestEntriesFromCompilation =
-  require('./lib/get-manifest-entries-from-compilation');
-const relativeToOutputPath = require('./lib/relative-to-output-path');
+import {CommonConfig} from './types';
+import {getScriptFilesForChunks} from './lib/get-script-files-for-chunks';
+import {getManifestEntriesFromCompilation} from './lib/get-manifest-entries-from-compilation';
+import {relativeToOutputPath} from './lib/relative-to-output-path';
 
 // webpack v4/v5 compatibility:
 // https://github.com/webpack/webpack/issues/11425#issuecomment-686607633
@@ -25,7 +30,28 @@ const {RawSource} = webpack.sources || require('webpack-sources');
 
 // Used to keep track of swDest files written by *any* instance of this plugin.
 // See https://github.com/GoogleChrome/workbox/issues/2181
-const _generatedAssetNames = new Set();
+const _generatedAssetNames = new Set<string>();
+
+interface GenerateSWConfig extends CommonConfig {
+  babelPresetEnvTargets?: Array<string>;
+  cacheId?: string;
+  cleanupOutdatedCaches?: boolean;
+  clientsClaim?: boolean;
+  directoryIndex?: string;
+  ignoreURLParametersMatching?: Array<RegExp>;
+  importScripts?: Array<string>;
+  importScriptsViaChunks?: Array<string>;
+  inlineWorkboxRuntime?: boolean;
+  manifestEntries?: Array<unknown>; // TODO - huh?
+  navigateFallback?: string;
+  navigateFallbackDenylist?: Array<RegExp>;
+  navigateFallbackAllowlist?: Array<RegExp>;
+  navigationPreload?: boolean;
+  offlineGoogleAnalytics?: boolean | GoogleAnalyticsInitializeOptions;
+  runtimeCaching?: Array<RuntimeCachingEntry>;
+  skipWaiting?: boolean;
+  sourcemap?: boolean;
+}
 
 /**
  * This class supports creating a new, ready-to-use service worker file as
@@ -37,7 +63,9 @@ const _generatedAssetNames = new Set();
  *
  * @memberof module:workbox-webpack-plugin
  */
-class GenerateSW {
+export default class GenerateSW {
+  private config: GenerateSWConfig;
+  private alreadyCalled: boolean;
   // eslint-disable-next-line jsdoc/newline-after-description
   /**
    * Creates an instance of GenerateSW.
@@ -79,7 +107,7 @@ class GenerateSW {
    * [asset's metadata](https://github.com/webpack/webpack/issues/9038) is used
    * to determine whether it's immutable or not.)
    *
-   * @param {Array<string|RegExp|Function>} [config.exclude=[/\.map$/, /^manifest.*\.js$]]
+   * @param {Array<string|RegExp>} [config.exclude=[/\.map$/, /^manifest.*\.js$]]
    * One or more specifiers used to exclude assets from the precache manifest.
    * This is interpreted following
    * [the same rules](https://webpack.js.org/configuration/module/#condition)
@@ -104,7 +132,7 @@ class GenerateSW {
    * webpack chunks. The content of those chunks will be included in the
    * generated service worker, via a call to `importScripts()`.
    *
-   * @param {Array<string|RegExp|Function>} [config.include]
+   * @param {Array<string|RegExp>} [config.include]
    * One or more specifiers used to include assets in the precache manifest.
    * This is interpreted following
    * [the same rules](https://webpack.js.org/configuration/module/#condition)
@@ -190,7 +218,7 @@ class GenerateSW {
    * @param {string} [config.swDest='service-worker.js'] The asset name of the
    * service worker file that will be created by this plugin.
    */
-  constructor(config = {}) {
+  constructor(config: GenerateSWConfig = {}) {
     this.config = config;
     this.alreadyCalled = false;
   }
@@ -200,7 +228,7 @@ class GenerateSW {
    *
    * @private
    */
-  propagateWebpackConfig(compiler) {
+  propagateWebpackConfig(compiler: webpack.Compiler): void {
     // Because this.config is listed last, properties that are already set
     // there take precedence over derived properties from the compiler.
     this.config = Object.assign({
@@ -214,7 +242,7 @@ class GenerateSW {
    *
    * @private
    */
-  apply(compiler) {
+  apply(compiler: webpack.Compiler): void {
     this.propagateWebpackConfig(compiler);
 
     // webpack v4/v5 compatibility:
@@ -223,7 +251,9 @@ class GenerateSW {
       compiler.hooks.emit.tapPromise(
           this.constructor.name,
           (compilation) => this.addAssets(compilation).catch(
-              (error) => compilation.errors.push(error)),
+              (error: webpack.WebpackError) => {
+                compilation.errors.push(error)
+              }),
       );
     } else {
       const {PROCESS_ASSETS_STAGE_OPTIMIZE_TRANSFER} = webpack.Compilation;
@@ -237,7 +267,9 @@ class GenerateSW {
               // See https://github.com/webpack/webpack/issues/11822#issuecomment-726184972
               stage: PROCESS_ASSETS_STAGE_OPTIMIZE_TRANSFER - 10,
             }, () => this.addAssets(compilation).catch(
-                (error) => compilation.errors.push(error)),
+                (error: webpack.WebpackError) => {
+                  compilation.errors.push(error)
+                }),
             );
           },
       );
@@ -249,7 +281,7 @@ class GenerateSW {
    *
    * @private
    */
-  async addAssets(compilation) {
+  async addAssets(compilation: webpack.Compilation): Promise<void> {
     // See https://github.com/GoogleChrome/workbox/issues/1790
     if (this.alreadyCalled) {
       const warningMessage = `${this.constructor.name} has been called ` +
@@ -260,13 +292,13 @@ class GenerateSW {
 
       if (!compilation.warnings.some((warning) => warning instanceof Error &&
             warning.message === warningMessage)) {
-        compilation.warnings.push(new Error(warningMessage));
+        compilation.warnings.push(new webpack.WebpackError(warningMessage));
       }
     } else {
       this.alreadyCalled = true;
     }
 
-    let config;
+    let config: GenerateSWConfig;
     try {
       // emit might be called multiple times; instead of modifying this.config,
       // use a validated copy.
@@ -279,7 +311,8 @@ class GenerateSW {
 
     // Ensure that we don't precache any of the assets generated by *any*
     // instance of this plugin.
-    config.exclude.push(({asset}) => _generatedAssetNames.has(asset.name));
+    // @ts-ignore - TODO - webpack v5 doesn't accept functions anymore
+    config.exclude!.push(({asset}) => _generatedAssetNames.has(asset.name));
 
     if (config.importScriptsViaChunks) {
       // Anything loaded via importScripts() is implicitly cached by the service
@@ -305,7 +338,7 @@ class GenerateSW {
       inlineWorkboxRuntime: config.inlineWorkboxRuntime,
       mode: config.mode,
       sourcemap: config.sourcemap,
-      swDest: relativeToOutputPath(compilation, config.swDest),
+      swDest: relativeToOutputPath(compilation, config.swDest!),
       unbundledCode,
     });
 
@@ -320,9 +353,7 @@ class GenerateSW {
     if (compilation.getLogger) {
       const logger = compilation.getLogger(this.constructor.name);
       logger.info(`The service worker at ${config.swDest} will precache
-        ${config.manifestEntries.length} URLs, totaling ${prettyBytes(size)}.`);
+        ${config.manifestEntries!.length} URLs, totaling ${prettyBytes(size)}.`);
     }
   }
 }
-
-module.exports = GenerateSW;
