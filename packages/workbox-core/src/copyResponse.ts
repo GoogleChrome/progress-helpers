@@ -6,7 +6,6 @@
   https://opensource.org/licenses/MIT.
 */
 
-import {canConstructResponseFromBodyStream} from './_private/canConstructResponseFromBodyStream.js';
 import {WorkboxError} from './_private/WorkboxError.js';
 
 import './_version.js';
@@ -56,14 +55,8 @@ async function copyResponse(
 
   // Apply any user modifications.
   const modifiedResponseInit = modifier ? modifier(responseInit) : responseInit;
-
-  // Create the new response from the body stream and `ResponseInit`
-  // modifications. Note: not all browsers support the Response.body stream,
-  // so fall back to reading the entire body into memory as a blob.
-  const body = canConstructResponseFromBodyStream() ?
-      clonedResponse.body : await clonedResponse.blob();
-
+  const body = await clonedResponse.blob();
   return new Response(body, modifiedResponseInit);
 }
 
-export {copyResponse}
+export {copyResponse};
